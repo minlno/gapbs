@@ -191,7 +191,7 @@ void DoKernelTrials(int num_trials,const CLApp &cli,
       PrintTime("Verification Time", trial_timer.Seconds());
 	}
   }
-  PrintTime("Average Time", total_seconds / cli.num_trials());
+  PrintTime("Average Time", total_seconds / num_trials);
 }
 
 #endif  // BENCHMARK_H_
