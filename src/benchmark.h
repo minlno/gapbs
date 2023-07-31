@@ -10,6 +10,10 @@
 #include <random>
 #include <utility>
 #include <vector>
+//mhkim
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 #include "builder.h"
 #include "graph.h"
@@ -93,6 +97,49 @@ bool VerifyUnimplemented(...) {
   return false;
 }
 
+int CreateSocket(int &socket_fd, int &opt, 
+		struct sockaddr_in &address, const int &port) {
+  if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    std::cerr << "Socket creation error" << std::endl; 
+	return -1;
+  }
+
+  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+    std::cerr << "Setsockopt error" << std::endl;
+	return -1;
+  }
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = INADDR_ANY;
+  address.sin_port = htons(port);
+
+  if (bind(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    std::cerr << "Bind failed" << std::endl;
+	return -1;
+  }
+
+  if (listen(socket_fd, 3) < 0) {
+    std::cerr << "Listen error" << std::endl;
+	return -1;
+  }
+
+  return 0;
+}
+
+int GetNumTrials(const int &socket_fd, const struct sockaddr_in &address) {
+  int num_trials = 0;
+  int new_socket;
+  int addrlen = sizeof(address);
+  char buffer[1024] = {0};
+  if ((new_socket = accept(socket_fd, (struct sockaddr *) &address, (socklen_t *) &addrlen)) < 0) {
+	std::cerr << "Accept error" << std::endl;
+	return -1;
+  }
+
+  read(new_socket, buffer, 1024);
+  num_trials = atoi(buffer);
+
+  return num_trials;
+}
 
 // Calls (and times) kernel according to command line arguments
 template<typename GraphT_, typename GraphFunc, typename AnalysisFunc,
@@ -100,10 +147,35 @@ template<typename GraphT_, typename GraphFunc, typename AnalysisFunc,
 void BenchmarkKernel(const CLApp &cli, const GraphT_ &g,
                      GraphFunc kernel, AnalysisFunc stats,
                      VerifierFunc verify) {
+  // do_socket_ 확인
+  if (cli.do_socket()) {
+	int socket_fd;
+	struct sockaddr_in address;
+	int opt = 1;
+	int num_trials = 0;
+	if (CreateSocket(socket_fd, opt, address, cli.port()) < 0) {
+      return; 
+	}
+	while (1) {
+    // TODO:  네트워크를 통해 num_trials 횟수를 받아오기
+	  if ((num_trials = GetNumTrials(socket_fd, address)) < 0)
+		return;
+	  DoKernelTrials(num_trials, cli, g, kernel, stats, verify);
+    }
+  } else {
+    DoKernelTrials(cli.num_trials(), cli, g, kernel, stats, verify);
+  }
+}
+
+template<typename GraphT_, typename GraphFunc, typename AnalysisFunc,
+         typename VerifierFunc>
+void DoKernelTrials(int num_trials,const CLApp &cli, 
+		            const GraphT_ &g, GraphFunc kernel,
+					AnalysisFunc stats, VerifierFunc verify) {
   g.PrintStats();
   double total_seconds = 0;
   Timer trial_timer;
-  for (int iter=0; iter < cli.num_trials(); iter++) {
+  for (int iter=0; iter < num_trials; iter++) {
     trial_timer.Start();
     auto result = kernel(g);
     trial_timer.Stop();
@@ -114,10 +186,10 @@ void BenchmarkKernel(const CLApp &cli, const GraphT_ &g,
     if (cli.do_verify()) {
       trial_timer.Start();
       PrintLabel("Verification",
-                 verify(std::ref(g), std::ref(result)) ? "PASS" : "FAIL");
+               verify(std::ref(g), std::ref(result)) ? "PASS" : "FAIL");
       trial_timer.Stop();
       PrintTime("Verification Time", trial_timer.Seconds());
-    }
+	}
   }
   PrintTime("Average Time", total_seconds / cli.num_trials());
 }
