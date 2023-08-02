@@ -181,7 +181,7 @@ void DoKernelTrials(int num_trials,const CLApp &cli,
     trial_timer.Stop();
     PrintTime("Trial Time", trial_timer.Seconds());
     total_seconds += trial_timer.Seconds();
-    if (cli.do_analysis() && (iter == (cli.num_trials()-1)))
+    if (cli.do_analysis() && (iter == (num_trials-1)))
       stats(g, result);
     if (cli.do_verify()) {
       trial_timer.Start();

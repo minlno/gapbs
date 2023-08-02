@@ -121,12 +121,12 @@ class CLApp : public CLBase {
 
  public:
   CLApp(int argc, char** argv, std::string name) : CLBase(argc, argv, name) {
-    get_args_ += "an:r:vsp:";
+    get_args_ += "an:r:vSp:";
     AddHelpLine('a', "", "output analysis of last run", "false");
     AddHelpLine('n', "n", "perform n trials", std::to_string(num_trials_));
     AddHelpLine('r', "node", "start from node r", "rand");
     AddHelpLine('v', "", "verify the output of each run", "false");
-	AddHelpLine('s', "", "get n of trials from socket", "false");
+	AddHelpLine('S', "", "get n of trials from socket", "false");
 	AddHelpLine('p', "port", "port number", std::to_string(port_)); 
   }
 
@@ -136,7 +136,7 @@ class CLApp : public CLBase {
       case 'n': num_trials_ = atoi(opt_arg);            break;
       case 'r': start_vertex_ = atol(opt_arg);          break;
       case 'v': do_verify_ = true;                      break;
-      case 's': do_socket_ = true;                      break;
+      case 'S': do_socket_ = true;                      break;
       case 'p': port_ = atoi(opt_arg);                  break;
       default: CLBase::HandleArg(opt, opt_arg);
     }
